@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      args:
+        # tiny | base | small | medium | large-v3  (bigger = better, slower)
+        WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      secrets:
+        - hf_token            # only consumed if you enable a gated-model download in the Dockerfile
+    image: voice-face-api:latest
+    ports:
+      - "8000:8000"           # UI at http://localhost:8000 · APIs under /voice and /face
+    environment:
+      NUM_THREADS: ${NUM_THREADS:-4}
+      COMPUTE_TYPE: int8
+      MATCH_THRESHOLD: ${MATCH_THRESHOLD:-0.40}
+    restart: unless-stopped
+
+# Build-time secret. The value comes from your shell / .env file and is mounted
+# only for the RUN step that uses it — it is NEVER baked into image layers.
+# (Use `file: ./hf_token.txt` instead of `environment:` on older Compose versions.)
+secrets:
+  hf_token:
+    environment: HF_TOKEN

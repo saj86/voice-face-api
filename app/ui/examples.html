@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Examples — Voice + Face</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f2ec;--panel:#fbfaf6;--ink:#1c1b18;--muted:#6b6960;--line:#d9d6cc;
+    --accent:#0f766e;--accent-soft:#0f766e14;--code-bg:#1c1b18;--code-fg:#e8e6df;
+    --radius:12px;--mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 90px}
+  header{margin-bottom:24px}
+  h1{font-size:23px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+  h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  header p{margin:0;color:var(--muted);font-size:13.5px}
+  header a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:12px}
+  h2{font-size:17px;margin:34px 0 4px;font-weight:700}
+  .ep{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:var(--accent-soft);display:inline-block;padding:3px 9px;border-radius:6px;margin:6px 0}
+  p.desc{color:var(--muted);font-size:13.5px;margin:6px 0 12px}
+  table.params{border-collapse:collapse;font-size:12.5px;margin:6px 0 14px;width:100%}
+  table.params td{border-bottom:1px solid var(--line);padding:5px 8px;vertical-align:top;font-family:var(--mono)}
+  table.params td:first-child{color:var(--ink);white-space:nowrap}
+  table.params td:last-child{color:var(--muted)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:18px}
+  .tabs{display:flex;gap:2px;background:#efece4;padding:6px 8px 0;border-bottom:1px solid var(--line)}
+  .tabs button{font-family:var(--sans);font-size:12.5px;font-weight:600;border:none;background:none;color:var(--muted);padding:8px 14px;cursor:pointer;border-radius:7px 7px 0 0}
+  .tabs button.on{color:var(--ink);background:var(--panel)}
+  .codewrap{position:relative}
+  pre{margin:0;background:var(--code-bg);color:var(--code-fg);font-family:var(--mono);font-size:12.5px;line-height:1.6;padding:18px;overflow:auto}
+  .copy{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:11px;border:1px solid #3a3833;background:#2a2824;color:#cfccc2;border-radius:6px;padding:4px 10px;cursor:pointer}
+  .copy:hover{background:#3a3833}
+  .note{background:var(--accent-soft);border:1px solid #0f766e33;border-radius:10px;padding:14px 16px;font-size:13.5px;margin:14px 0}
+  .roadmap{border-style:dashed}
+  code{font-family:var(--mono);background:#e7e4db;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  ul{font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="dot"></span>API Examples</h1>
+    <p>How to call the local APIs from C#, JavaScript and cURL. <a href="/">← back to console</a> · <a href="/docs" target="_blank">OpenAPI docs</a></p>
+  </header>
+
+  <div class="note">
+    Base URL is <code>http://localhost:8000</code> (change host/port for a remote server). No
+    authentication is required by default. All endpoints accept <code>multipart/form-data</code>;
+    options are passed as query-string parameters.
+  </div>
+
+  <!-- ============ TRANSCRIBE ============ -->
+  <h2>Transcribe a call</h2>
+  <span class="ep">POST /voice/transcribe</span>
+  <p class="desc">Upload an audio file (WAV/MP3/M4A/FLAC/OGG). Returns the diarized transcript.</p>
+  <table class="params">
+    <tr><td>file</td><td>form field — the audio file (required)</td></tr>
+    <tr><td>num_speakers</td><td>known speaker count, e.g. 2; omit/-1 for auto (ignored for dual-channel)</td></tr>
+    <tr><td>language</td><td>force ISO code e.g. de, fr; omit to auto-detect</td></tr>
+    <tr><td>threshold</td><td>diarization sensitivity 0–1 (mono only)</td></tr>
+    <tr><td>diarization_mode</td><td>auto | channel | cluster</td></tr>
+  </table>
+  <div class="card" data-snip="transcribe"></div>
+
+  <!-- ============ ANALYSIS ============ -->
+  <h2>Analyze a call (post-call)</h2>
+  <span class="ep">POST /voice/analysis</span>
+  <p class="desc">Send <em>either</em> an audio <code>file</code> (it is transcribed first) <em>or</em> a
+  <code>transcript</code> JSON string from <code>/voice/transcribe</code> (skips re-transcribing).
+  Returns transcript + analysis (metrics, acoustic voice features, and LLM insights).</p>
+  <table class="params">
+    <tr><td>file</td><td>audio file (use this OR transcript)</td></tr>
+    <tr><td>transcript</td><td>form field — a transcript JSON string (use this OR file)</td></tr>
+    <tr><td>output_language</td><td>result language; default de; 'auto' matches the call</td></tr>
+  </table>
+  <div class="card" data-snip="analysis"></div>
+
+  <!-- ============ FACE DETECT ============ -->
+  <h2>Detect faces</h2>
+  <span class="ep">POST /face/detect</span>
+  <p class="desc">Upload an image; returns bounding boxes (largest-first).</p>
+  <div class="card" data-snip="detect"></div>
+
+  <!-- ============ FACE COMPARE ============ -->
+  <h2>Compare two faces</h2>
+  <span class="ep">POST /face/compare</span>
+  <p class="desc">Upload two images; returns cosine similarity and a match decision.</p>
+  <table class="params">
+    <tr><td>file1, file2</td><td>the two images (required)</td></tr>
+    <tr><td>threshold</td><td>match threshold 0–1 (default 0.40)</td></tr>
+  </table>
+  <div class="card" data-snip="compare"></div>
+
+  <!-- ============ STREAMING ROADMAP ============ -->
+  <h2>Live / near-real-time streaming <span style="font-weight:400;color:var(--muted);font-size:13px">(roadmap — not yet implemented)</span></h2>
+  <p class="desc">The current pipeline is batch (whole file). The sketch below shows the intended
+  WebSocket design for live transcription. It does not work against the current build — it is
+  here to illustrate the future approach.</p>
+  <div class="card roadmap" data-snip="streaming"></div>
+  <div class="note roadmap">
+    Real-time needs a <strong>streaming-capable model</strong> (faster-whisper is offline/batch).
+    Options that stay open-source &amp; offline: <strong>sherpa-onnx online (streaming Zipformer)</strong> —
+    same library we already use, lowest latency on CPU; or <strong>whisper-streaming / WhisperLive</strong> —
+    wraps Whisper with a chunk + "local agreement" policy for higher accuracy at ~2–4s latency.
+    For <strong>dual-channel</strong> calls, each party is a separate stream, so live diarization is free.
+    LLM analysis stays <em>post-call</em>.
+  </div>
+</div>
+
+<script>
+const BASE = "http://localhost:8000";
+const SNIPPETS = {
+  transcribe: {
+    "C#": `using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+
+var client = new HttpClient { BaseAddress = new Uri("${BASE}") };
+
+var path = "call.wav";
+using var form = new MultipartFormDataContent();
+var bytes = await File.ReadAllBytesAsync(path);
+var file = new ByteArrayContent(bytes);
+file.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+form.Add(file, "file", Path.GetFileName(path));
+
+// known 2-party German call:
+var resp = await client.PostAsync("/voice/transcribe?num_speakers=2&language=de", form);
+resp.EnsureSuccessStatusCode();
+Console.WriteLine(await resp.Content.ReadAsStringAsync());`,
+    "JavaScript": `// Browser (from an <input type="file">)
+const fd = new FormData();
+fd.append("file", fileInput.files[0]);
+
+const res = await fetch("${BASE}/voice/transcribe?num_speakers=2&language=de", {
+  method: "POST",
+  body: fd,
+});
+const data = await res.json();
+console.log(data.num_speakers, data.segments);
+
+// Node.js 18+ (global fetch / FormData / Blob)
+import { readFile } from "node:fs/promises";
+const buf = await readFile("call.wav");
+const f = new FormData();
+f.append("file", new Blob([buf]), "call.wav");
+const r = await fetch("${BASE}/voice/transcribe?num_speakers=2&language=de", { method: "POST", body: f });
+console.log(await r.json());`,
+    "cURL": `curl -X POST "${BASE}/voice/transcribe?num_speakers=2&language=de" \\
+  -F "file=@call.wav"`,
+    "PowerShell": `# PowerShell 7+ (Invoke-RestMethod -Form supports multipart)
+$form = @{ file = Get-Item -Path 'call.wav' }
+$r = Invoke-RestMethod -Uri "${BASE}/voice/transcribe?num_speakers=2&language=de" -Method Post -Form $form
+$r | ConvertTo-Json -Depth 6`,
+  },
+  analysis: {
+    "C#": `// Option A: send the audio file (it gets transcribed first)
+using var form = new MultipartFormDataContent();
+var bytes = await File.ReadAllBytesAsync("call.wav");
+var file = new ByteArrayContent(bytes);
+file.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+form.Add(file, "file", "call.wav");
+var resp = await client.PostAsync("/voice/analysis?output_language=de", form);
+Console.WriteLine(await resp.Content.ReadAsStringAsync());
+
+// Option B: you already have a transcript JSON -> skip re-transcribing
+using var form2 = new MultipartFormDataContent();
+form2.Add(new StringContent(transcriptJson), "transcript");
+var resp2 = await client.PostAsync("/voice/analysis?output_language=de", form2);
+Console.WriteLine(await resp2.Content.ReadAsStringAsync());`,
+    "JavaScript": `// A) analyze an audio file directly
+const fd = new FormData();
+fd.append("file", fileInput.files[0]);
+let res = await fetch("${BASE}/voice/analysis?output_language=de", { method: "POST", body: fd });
+console.log(await res.json());
+
+// B) reuse a transcript you already fetched (what the console does)
+const fd2 = new FormData();
+fd2.append("transcript", JSON.stringify(transcript));
+res = await fetch("${BASE}/voice/analysis?output_language=de", { method: "POST", body: fd2 });
+const out = await res.json();
+console.log(out.analysis.insights, out.analysis.voice);`,
+    "cURL": `# from an audio file
+curl -X POST "${BASE}/voice/analysis?output_language=de" -F "file=@call.wav"
+
+# from an existing transcript.json
+curl -X POST "${BASE}/voice/analysis?output_language=de" \\
+  -F "transcript=$(cat transcript.json)"`,
+    "PowerShell": `# A) analyze an audio file
+$form = @{ file = Get-Item 'call.wav' }
+Invoke-RestMethod -Uri "${BASE}/voice/analysis?output_language=de" -Method Post -Form $form
+
+# B) reuse an existing transcript.json
+$form2 = @{ transcript = (Get-Content 'transcript.json' -Raw) }
+Invoke-RestMethod -Uri "${BASE}/voice/analysis?output_language=de" -Method Post -Form $form2`,
+  },
+  detect: {
+    "C#": `using var form = new MultipartFormDataContent();
+var img = new ByteArrayContent(await File.ReadAllBytesAsync("photo.jpg"));
+img.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+form.Add(img, "file", "photo.jpg");
+
+var resp = await client.PostAsync("/face/detect", form);
+Console.WriteLine(await resp.Content.ReadAsStringAsync()); // { count, faces:[{bbox,det_score}] }`,
+    "JavaScript": `const fd = new FormData();
+fd.append("file", imageInput.files[0]);
+const res = await fetch("${BASE}/face/detect", { method: "POST", body: fd });
+const { count, faces } = await res.json();
+console.log(count, faces);`,
+    "cURL": `curl -X POST "${BASE}/face/detect" -F "file=@photo.jpg"`,
+    "PowerShell": `$form = @{ file = Get-Item 'photo.jpg' }
+Invoke-RestMethod -Uri "${BASE}/face/detect" -Method Post -Form $form | ConvertTo-Json -Depth 5`,
+  },
+  compare: {
+    "C#": `using var form = new MultipartFormDataContent();
+var a = new ByteArrayContent(await File.ReadAllBytesAsync("a.jpg"));
+var b = new ByteArrayContent(await File.ReadAllBytesAsync("b.jpg"));
+a.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+b.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+form.Add(a, "file1", "a.jpg");
+form.Add(b, "file2", "b.jpg");
+
+var resp = await client.PostAsync("/face/compare?threshold=0.40", form);
+Console.WriteLine(await resp.Content.ReadAsStringAsync()); // { similarity, match, threshold }`,
+    "JavaScript": `const fd = new FormData();
+fd.append("file1", img1Input.files[0]);
+fd.append("file2", img2Input.files[0]);
+const res = await fetch("${BASE}/face/compare?threshold=0.40", { method: "POST", body: fd });
+const { similarity, match } = await res.json();
+console.log(similarity, match);`,
+    "cURL": `curl -X POST "${BASE}/face/compare?threshold=0.40" \\
+  -F "file1=@a.jpg" -F "file2=@b.jpg"`,
+    "PowerShell": `$form = @{ file1 = Get-Item 'a.jpg'; file2 = Get-Item 'b.jpg' }
+Invoke-RestMethod -Uri "${BASE}/face/compare?threshold=0.40" -Method Post -Form $form`,
+  },
+  streaming: {
+    "JavaScript (client)": `// ROADMAP — illustrative only, no /voice/stream endpoint exists yet.
+// Capture mic PCM and stream it over a WebSocket; render partial + final text.
+const ws = new WebSocket("ws://localhost:8000/voice/stream");
+ws.binaryType = "arraybuffer";
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);          // { type:"partial"|"final", speaker, text }
+  console.log(msg.type, msg.speaker, msg.text);
+};
+
+const ctx = new AudioContext({ sampleRate: 16000 });
+const src = ctx.createMediaStreamSource(await navigator.mediaDevices.getUserMedia({ audio: true }));
+await ctx.audioWorklet.addModule("pcm-worklet.js");      // posts Int16 PCM frames
+const node = new AudioWorkletNode(ctx, "pcm-worklet");
+node.port.onmessage = (ev) => ws.readyState === 1 && ws.send(ev.data); // send PCM chunk
+src.connect(node);`,
+    "Python (FastAPI server sketch)": `# ROADMAP — conceptual streaming endpoint using a STREAMING model
+# (e.g. sherpa-onnx online recognizer). faster-whisper is batch, so it is
+# not used here. This is not part of the current build.
+from fastapi import WebSocket
+import numpy as np, sherpa_onnx
+
+@app.websocket("/voice/stream")
+async def stream(ws: WebSocket):
+    await ws.accept()
+    recognizer = build_online_recognizer()   # sherpa-onnx streaming Zipformer
+    s = recognizer.create_stream()
+    last = ""
+    try:
+        while True:
+            chunk = await ws.receive_bytes()                 # Int16 PCM @16k
+            samples = np.frombuffer(chunk, np.int16).astype(np.float32) / 32768.0
+            s.accept_waveform(16000, samples)
+            while recognizer.is_ready(s):
+                recognizer.decode_stream(s)
+            text = recognizer.get_result(s)
+            if text and text != last:
+                last = text
+                await ws.send_json({"type": "partial", "text": text})
+    except Exception:
+        await ws.send_json({"type": "final", "text": last})`,
+    "Notes": `Approaches for near-real-time, ranked by how well they fit this project:
+
+1) WebSocket + sherpa-onnx ONLINE model (streaming Zipformer transducer)
+   - same library already used for diarization; lowest latency; CPU-friendly; offline
+   - emits partial results continuously, finalizes on silence (VAD)
+
+2) WebSocket + whisper-streaming / WhisperLive (wraps faster-whisper)
+   - best accuracy (Whisper, multilingual incl. German), ~2-4s latency, more CPU
+   - "local agreement" commits words once two chunks agree
+
+3) Chunked micro-batch over HTTP
+   - simplest: client POSTs 3-5s clips; server transcribes each; stitch on client
+   - higher latency, word-boundary glitches; fine for "near" real-time logging
+
+Diarization while live:
+- dual-channel calls -> one WS stream per channel = perfect, free speaker split
+- mono -> online clustering is hard; assign per utterance via embeddings
+
+Telephony source: tap RTP/media from the PBX
+- Asterisk (AudioSocket / external media), FreeSWITCH (mod_audio_fork), or SIPREC
+  forward raw PCM to the WebSocket above.
+
+LLM analysis stays post-call (it needs the full transcript and isn't real-time).`,
+  },
+};
+
+function buildCard(card, snip){
+  const langs = Object.keys(snip);
+  const tabs = document.createElement("div"); tabs.className = "tabs";
+  const wrap = document.createElement("div"); wrap.className = "codewrap";
+  const pre = document.createElement("pre"); const codeEl = document.createElement("code");
+  pre.appendChild(codeEl);
+  const copy = document.createElement("button"); copy.className = "copy"; copy.textContent = "Copy";
+  copy.onclick = () => { navigator.clipboard.writeText(codeEl.textContent); copy.textContent = "Copied"; setTimeout(()=>copy.textContent="Copy",1200); };
+  function show(lang){
+    [...tabs.children].forEach(b=>b.classList.toggle("on", b.textContent===lang));
+    codeEl.textContent = snip[lang];
+  }
+  langs.forEach(l=>{ const b=document.createElement("button"); b.textContent=l; b.onclick=()=>show(l); tabs.appendChild(b); });
+  wrap.appendChild(copy); wrap.appendChild(pre);
+  card.appendChild(tabs); card.appendChild(wrap);
+  show(langs[0]);
+}
+document.querySelectorAll(".card[data-snip]").forEach(c=>buildCard(c, SNIPPETS[c.dataset.snip]));
+</script>
+</body>
+</html>

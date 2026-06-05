@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice + Face Console</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/static/vendor/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#eef0f4;--panel:#ffffff;--ink:#15181d;--muted:#6b7280;--line:#e3e6ec;--soft:#f6f7f9;
+    --accent:#0d7d72;--accent-soft:#0d7d7214;--pos:#16855a;--neg:#c0392b;--neu:#6b7280;--warn:#b45309;
+    --radius:14px;--shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.06);
+    --mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans",system-ui,sans-serif;
+    --s0:#0d7d72;--s1:#b45309;--s2:#6d28d9;--s3:#be185d;--s4:#1d4ed8;--s5:#4d7c0f;--s6:#a16207;--s7:#9f1239;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1040px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#0a5f57);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex:none}
+  .brand img.logo{object-fit:contain;background:#fff;border:1px solid var(--line)}
+  .brand .bname{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand .bsub{font-size:11.5px;color:var(--muted)}
+  .topbar .sp{flex:1}
+  .topbar a{color:var(--muted);text-decoration:none;font-family:var(--mono);font-size:12px;margin-left:14px}
+  .topbar a:hover{color:var(--accent)}
+  .topbar select{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink)}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 20px 90px}
+  .nav{display:flex;gap:4px;margin:6px 0 18px;border-bottom:1px solid var(--line)}
+  .nav button{font-family:var(--sans);font-size:14px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 14px;cursor:pointer;margin-bottom:-1px}
+  .nav button.on{color:var(--ink);border-color:var(--accent)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .panel h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 14px;font-weight:600;font-family:var(--mono)}
+  .view{display:none}.view.on{display:block}
+  label{display:block;font-size:12.5px;font-weight:500;margin-bottom:5px}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .field{flex:1;min-width:150px;margin-bottom:14px}
+  input[type=text],input[type=number],select.in{width:100%;padding:9px 11px;font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:5px;font-family:var(--mono)}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}.check input{width:auto}
+  .drop{border:1.5px dashed var(--line);border-radius:11px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:var(--soft)}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop strong{color:var(--accent)}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap}
+  button.btn{font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;padding:10px 18px;border-radius:10px}
+  button.btn.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  button.btn:hover{filter:brightness(1.06)}button.btn:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:12.5px;font-family:var(--mono);color:var(--muted)}.status.err{color:var(--neg)}
+  .queue{margin-top:14px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .qrow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px}
+  .qrow:last-child{border-bottom:none}.qrow:hover{background:var(--soft)}.qrow.sel{background:var(--accent-soft)}
+  .qrow .nm{font-family:var(--mono);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.queued{background:#6b72801a;color:var(--muted)}.pill.transcribing,.pill.analyzing{background:#b4530920;color:var(--warn)}
+  .pill.done{background:#16855a1a;color:var(--pos)}.pill.error{background:#c0392b1a;color:var(--neg)}
+  /* detail */
+  .detail-cols{display:flex;gap:22px;align-items:flex-start}
+  .leftcol{flex:0 0 350px;position:sticky;top:74px}
+  .rightcol{flex:1;min-width:0}
+  canvas.wave{width:100%;height:88px;display:block;background:var(--soft);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+  canvas.spec{width:100%;height:64px;display:block;background:#15181d;border-radius:10px;margin-top:8px}
+  .timeline{display:flex;height:14px;border-radius:7px;overflow:hidden;margin-top:8px;border:1px solid var(--line);background:var(--soft)}
+  .timeline div{height:100%;cursor:pointer}
+  .playbar{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .playbar button{font-family:var(--mono);font-size:13px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 14px;cursor:pointer}
+  .playbar .t{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .exprow{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .exprow button{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+  .exprow button:hover{border-color:var(--accent);color:var(--accent)}
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .subtabs button{font-family:var(--sans);font-size:13.5px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer;margin-bottom:-1px}
+  .subtabs button.on{color:var(--ink);border-color:var(--accent)}
+  .scroll{max-height:520px;overflow-y:auto;padding-right:6px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+  .legend span{font-family:var(--mono);font-size:11.5px;display:flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .seg{display:grid;grid-template-columns:96px 1fr;gap:14px;padding:11px 12px;border-radius:9px;cursor:pointer}
+  .seg:hover{background:var(--soft)}.seg.active{background:var(--accent-soft)}
+  .seg .meta{font-family:var(--mono);font-size:11.5px}.seg .spk{font-weight:600}
+  .seg .time{color:var(--muted);display:block;margin-top:2px}
+  .seg .emo{display:inline-block;margin-top:5px;font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:999px}
+  .seg .text{font-size:14.5px}
+  .emo.pos,.badge.pos{background:#16855a1a;color:var(--pos)}.emo.neg,.badge.neg{background:#c0392b1a;color:var(--neg)}.emo.neu,.badge.neu{background:#6b72801a;color:var(--neu)}
+  .badge{display:inline-block;padding:5px 12px;border-radius:999px;font-weight:600;font-size:12.5px}
+  .badge.warnb{background:#b4530920;color:var(--warn)}
+  .an-grid{display:flex;gap:24px;flex-wrap:wrap;margin-top:12px}.an-grid>div{flex:1;min-width:230px}
+  .an-grid ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}
+  .kv{font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.8}
+  .alert{display:flex;gap:10px;align-items:baseline;font-family:var(--mono);font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+  .alert b{color:var(--neg)}
+  .empty{color:var(--muted);font-size:13px;padding:16px 0;text-align:center}
+  pre{font-family:var(--mono);font-size:12px;background:#15181d;color:#e8e6df;padding:16px;border-radius:10px;overflow:auto;max-height:320px;margin:12px 0 0}
+  .twoup{display:flex;gap:16px;flex-wrap:wrap}.twoup .col{flex:1;min-width:200px}
+  .thumb{width:100%;border-radius:10px;border:1px solid var(--line);margin-top:8px;display:none}
+  canvas#dt-canvas{max-width:100%;border-radius:10px;border:1px solid var(--line);margin-top:14px;display:none}
+  .facelist{margin-top:12px;font-family:var(--mono);font-size:12.5px}.facelist div{padding:4px 0;border-bottom:1px dashed var(--line)}
+  .result{margin-top:18px;padding:18px;border-radius:12px;border:1px solid var(--line);text-align:center;display:none}
+  .result .score{font-family:var(--mono);font-size:34px;font-weight:600}
+  .sliderwrap{display:flex;align-items:center;gap:12px;margin-top:6px}input[type=range]{flex:1;accent-color:var(--accent)}
+  audio{display:none}
+  @media(max-width:780px){.detail-cols{flex-direction:column}.leftcol{position:static;flex-basis:auto;width:100%}}
+  @media print{.topbar,.nav,#sp-settings,#sp-files,.leftcol,.subtabs,.exprow,#sp-toggle,#sp-raw{display:none!important}
+    .scroll{max-height:none!important;overflow:visible!important}.panel{box-shadow:none;border:none}#sub-analysis,#sub-transcript{display:block!important}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="inner">
+  <div class="brand">
+    <img class="logo" id="brand-logo" src="/static/logo.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:'C'}))">
+    <div><div class="bname" id="brand-name">Voice + Face Console</div><div class="bsub" data-i18n="subtitle">Call analytics</div></div>
+  </div>
+  <div class="sp"></div>
+  <select id="ui-lang" title="Interface language">
+    <option value="en">EN</option><option value="de">DE</option><option value="fr">FR</option><option value="es">ES</option><option value="it">IT</option>
+  </select>
+  <a href="/examples" data-i18n="examples">API examples</a>
+  <a href="/docs" target="_blank">API docs</a>
+</div></div>
+
+<div class="wrap">
+  <div class="nav">
+    <button class="on" data-view="speech" data-i18n="nav_call">Call Analysis</button>
+    <button data-view="detect" data-i18n="nav_detect">Face Detect</button>
+    <button data-view="compare" data-i18n="nav_compare">Face Compare</button>
+  </div>
+
+  <!-- ===== CALL ANALYSIS ===== -->
+  <div class="view on" id="view-speech">
+    <div class="panel" id="sp-settings">
+      <h2 data-i18n="settings">Settings</h2>
+      <div class="row">
+        <div class="field"><label data-i18n="speakers">Speakers</label><input type="number" id="op-speakers" min="0" placeholder="auto" value="2"><div class="hint" data-i18n="speakers_hint">set 2 for a normal call</div></div>
+        <div class="field"><label data-i18n="spoken">Spoken language</label><input type="text" id="op-lang" list="langs" placeholder="auto"><div class="hint" data-i18n="spoken_hint">force ISO code for noisy audio</div></div>
+        <div class="field"><label data-i18n="results">Results language</label>
+          <select class="in" id="op-outlang"><option value="de">Deutsch</option><option value="auto">auto</option><option value="en">English</option><option value="fr">Français</option><option value="es">Español</option><option value="it">Italiano</option><option value="nl">Nederlands</option><option value="pt">Português</option></select>
+          <div class="hint" data-i18n="results_hint">language of insights</div></div>
+        <div class="field"><label data-i18n="sensitivity">Diarization sensitivity</label>
+          <div class="sliderwrap"><span class="hint" data-i18n="more">more</span><input type="range" id="op-thresh" min="0.2" max="0.9" step="0.01" value="0.5"><span class="hint" data-i18n="fewer">fewer</span></div>
+          <div class="hint"><span data-i18n="sens_hint">higher = fewer speakers</span> · <span id="op-thval">0.50</span></div></div>
+      </div>
+      <label class="check"><input type="checkbox" id="op-analyze" checked> <span data-i18n="run_after">Run analysis after transcription</span></label>
+      <datalist id="langs"><option value="de"><option value="fr"><option value="es"><option value="it"><option value="en"><option value="nl"><option value="pt"></datalist>
+    </div>
+
+    <div class="panel" id="sp-files">
+      <h2 data-i18n="files_title">Audio files (WAV/MP3/M4A/FLAC/OGG or a ZIP)</h2>
+      <div class="drop" id="sp-drop" data-i18n="drop">Drop audio files or a .zip here, or click to browse</div>
+      <input type="file" id="sp-file" accept="audio/*,.zip,.wav,.mp3,.m4a,.flac,.ogg" multiple hidden>
+      <div class="queue" id="sp-queue" style="display:none"></div>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn" id="sp-run" disabled data-i18n="process">Process all</button>
+        <button class="btn ghost" id="sp-clear" disabled data-i18n="clear">Clear</button>
+        <span class="status" id="sp-status"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="sp-detail" style="display:none">
+      <h2 id="sp-detail-name">Result</h2>
+      <div class="detail-cols">
+        <div class="leftcol">
+          <canvas class="wave" id="wave" height="88"></canvas>
+          <canvas class="spec" id="spec" height="64"></canvas>
+          <div class="timeline" id="timeline" title=""></div>
+          <div class="hint" data-i18n="sec_timeline">Sentiment timeline</div>
+          <div class="playbar"><button id="pp">► <span data-i18n="play">Play</span></button><span class="t" id="ptime">0:00 / 0:00</span></div>
+          <div class="legend" id="sp-legend"></div>
+          <div class="exprow">
+            <button id="ex-json" data-i18n="export_json">Export JSON</button>
+            <button id="ex-csv" data-i18n="export_csv">Export CSV</button>
+            <button id="ex-pdf" data-i18n="export_pdf">Print / PDF</button>
+          </div>
+        </div>
+        <div class="rightcol">
+          <div class="subtabs">
+            <button class="on" data-sub="transcript" data-i18n="transcript">Transcript</button>
+            <button data-sub="analysis" data-i18n="analysis">Analysis</button>
+          </div>
+          <div id="sub-transcript"><div class="scroll"><div id="sp-segments"></div></div></div>
+          <div id="sub-analysis" style="display:none"><div class="scroll">
+            <div id="an-card" style="display:none">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+                <span class="badge" id="an-sent"></span><span class="badge" id="an-cust"></span>
+                <span class="badge" id="an-complaint"></span><span class="badge" id="an-res"></span><span class="badge" id="an-sat"></span>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+                <span class="badge" id="an-cat"></span><span class="badge" id="an-urg"></span><span class="badge" id="an-sev"></span>
+                <span class="badge" id="an-out"></span><span class="badge" id="an-agent"></span><span class="badge" id="an-escal"></span>
+              </div>
+              <div class="kv" id="an-meta" style="margin-bottom:10px"></div>
+              <div id="an-reason" style="font-size:13px;color:var(--muted);margin-bottom:8px"></div>
+              <div id="an-summary" style="font-size:14.5px;margin-bottom:8px"></div>
+              <div id="an-details" style="font-size:13.5px;color:#374151;margin-bottom:12px"></div>
+              <div class="hint" data-i18n="sec_alerts">Keyword alerts</div>
+              <div id="an-alerts" style="margin-bottom:12px"></div>
+              <div class="an-grid">
+                <div>
+                  <div class="hint" data-i18n="sec_keypoints">Key points</div><ul id="an-keys"></ul>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_actions">Action items</div><ul id="an-actions"></ul>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_unanswered">Unanswered questions</div><ul id="an-unanswered"></ul>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_commit">Commitments</div><ul id="an-commit"></ul>
+                </div>
+                <div>
+                  <div class="hint" data-i18n="sec_topics">Topics</div><div class="kv" id="an-topics"></div>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_entities">Entities</div><div class="kv" id="an-entities"></div>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_metrics">Conversation metrics</div><div class="kv" id="an-metrics"></div>
+                  <div class="hint" style="margin-top:12px" data-i18n="sec_voice">Voice / acoustic</div><div class="kv" id="an-voice"></div>
+                </div>
+              </div>
+            </div>
+            <div class="empty" id="an-empty" data-i18n="analysis_empty">Enable analysis, then process the file to see insights.</div>
+          </div></div>
+          <div class="actions" style="margin-top:12px"><button class="btn ghost" id="sp-toggle" data-i18n="raw_show">Show raw JSON</button></div>
+          <pre id="sp-raw" style="display:none"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FACE DETECT ===== -->
+  <div class="view" id="view-detect">
+    <div class="panel"><h2>POST /face/detect</h2>
+      <div class="drop" id="dt-drop"><span data-i18n="drop_image">Drop an image or click to browse</span><span id="dt-fname" style="display:block;margin-top:8px;font-family:var(--mono);font-size:12.5px"></span></div>
+      <input type="file" id="dt-file" accept="image/*" hidden>
+      <div class="actions" style="margin-top:14px"><button class="btn" id="dt-go" disabled data-i18n="detect_btn">Detect faces</button><span class="status" id="dt-status"></span></div>
+      <canvas id="dt-canvas"></canvas><div class="facelist" id="dt-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== FACE COMPARE ===== -->
+  <div class="view" id="view-compare">
+    <div class="panel"><h2>POST /face/compare</h2>
+      <div class="twoup">
+        <div class="col"><div class="drop" id="cp-drop1">Image 1<span id="cp-fname1" style="display:block;margin-top:6px;font-family:var(--mono);font-size:12px"></span></div><input type="file" id="cp-file1" accept="image/*" hidden><img class="thumb" id="cp-thumb1"></div>
+        <div class="col"><div class="drop" id="cp-drop2">Image 2<span id="cp-fname2" style="display:block;margin-top:6px;font-family:var(--mono);font-size:12px"></span></div><input type="file" id="cp-file2" accept="image/*" hidden><img class="thumb" id="cp-thumb2"></div>
+      </div>
+      <div style="margin-top:16px"><label data-i18n="threshold">Match threshold</label>: <span id="cp-thval" style="font-family:var(--mono)">0.40</span>
+        <div class="sliderwrap"><span class="hint">0</span><input type="range" id="cp-th" min="0" max="1" step="0.01" value="0.40"><span class="hint">1</span></div></div>
+      <div class="actions" style="margin-top:14px"><button class="btn" id="cp-go" disabled data-i18n="compare_btn">Compare</button><span class="status" id="cp-status"></span></div>
+      <div class="result" id="cp-result"><div class="score" id="cp-score">—</div><div><span class="badge" id="cp-badge"></span></div><div class="kv" id="cp-detail" style="margin-top:10px"></div></div>
+    </div>
+  </div>
+</div>
+<audio id="player"></audio>
+
+<script>
+(function(){
+"use strict";
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=(s)=>{s=s||0;const m=Math.floor(s/60);return m+":"+Math.floor(s%60).toString().padStart(2,"0");};
+function setStatus(el,msg,err){el.textContent=msg;el.classList.toggle("err",!!err);}
+
+/* ---------------- i18n ---------------- */
+const I18N={
+ en:{subtitle:"Call analytics",examples:"API examples",nav_call:"Call Analysis",nav_detect:"Face Detect",nav_compare:"Face Compare",
+   settings:"Settings",speakers:"Speakers",speakers_hint:"set 2 for a normal call",spoken:"Spoken language",spoken_hint:"force ISO code for noisy audio",
+   results:"Results language",results_hint:"language of insights",sensitivity:"Diarization sensitivity",sens_hint:"higher = fewer speakers",more:"more",fewer:"fewer",
+   run_after:"Run analysis after transcription",files_title:"Audio files (WAV/MP3/M4A/FLAC/OGG or a ZIP)",drop:"Drop audio files or a .zip here, or click to browse",
+   process:"Process all",clear:"Clear",transcript:"Transcript",analysis:"Analysis",play:"Play",pause:"Pause",raw_show:"Show raw JSON",raw_hide:"Hide raw JSON",
+   export_json:"Export JSON",export_csv:"Export CSV",export_pdf:"Print / PDF",analysis_empty:"Enable analysis, then process the file to see insights.",
+   sec_timeline:"Sentiment timeline",sec_alerts:"Keyword alerts",sec_keypoints:"Key points",sec_actions:"Action items",sec_unanswered:"Unanswered questions",
+   sec_commit:"Commitments",sec_topics:"Topics",sec_entities:"Entities",sec_metrics:"Conversation metrics",sec_voice:"Voice / acoustic",no_alerts:"none",
+   l_overall:"overall",l_customer:"customer",l_complaint:"complaint",l_nocomplaint:"no complaint",l_resolution:"resolution",l_satisfaction:"satisfaction",
+   l_category:"category",l_urgency:"urgency",l_agent:"agent",l_escalate:"ESCALATE",l_progression:"progression",l_tone:"tone",l_confidence:"confidence",
+   l_severity:"severity",l_outcome:"outcome",drop_image:"Drop an image or click to browse",detect_btn:"Detect faces",compare_btn:"Compare",threshold:"Match threshold",
+   e:{sent:{positive:"positive",negative:"negative",neutral:"neutral"},emo:{neutral:"neutral",frustrated:"frustrated",angry:"angry",happy:"happy",satisfied:"satisfied",confused:"confused"},
+     sev:{none:"none",low:"low",medium:"medium",high:"high"},out:{resolved:"resolved",unresolved:"unresolved","follow-up required":"follow-up required",transferred:"transferred",escalated:"escalated",unclear:"unclear"},
+     res:{resolved:"resolved",unresolved:"unresolved","follow-up required":"follow-up required",unclear:"unclear"},sat:{high:"high",medium:"medium",low:"low",unclear:"unclear"},
+     urg:{low:"low",medium:"medium",high:"high"},cat:{billing:"billing",technical:"technical",sales:"sales",complaint:"complaint",information:"information",other:"other"},
+     prof:{poor:"poor",adequate:"adequate",good:"good",excellent:"excellent",unclear:"unclear"},role:{agent:"agent",customer:"customer",other:"other"},
+     kw:{refund:"Refund",cancel:"Cancel",complaint:"Complaint",urgent:"Urgent",supervisor:"Supervisor",lawyer:"Lawyer"}}},
+ de:{subtitle:"Anrufanalyse",examples:"API-Beispiele",nav_call:"Anrufanalyse",nav_detect:"Gesichtserkennung",nav_compare:"Gesichtsvergleich",
+   settings:"Einstellungen",speakers:"Sprecher",speakers_hint:"2 für ein normales Gespräch",spoken:"Gesprochene Sprache",spoken_hint:"ISO-Code bei schlechter Aufnahme erzwingen",
+   results:"Ergebnissprache",results_hint:"Sprache der Auswertung",sensitivity:"Diarisierungs-Empfindlichkeit",sens_hint:"höher = weniger Sprecher",more:"mehr",fewer:"weniger",
+   run_after:"Analyse nach Transkription ausführen",files_title:"Audiodateien (WAV/MP3/M4A/FLAC/OGG oder ZIP)",drop:"Audiodateien oder .zip hierher ziehen oder klicken",
+   process:"Alle verarbeiten",clear:"Leeren",transcript:"Transkript",analysis:"Analyse",play:"Abspielen",pause:"Pause",raw_show:"Roh-JSON anzeigen",raw_hide:"Roh-JSON verbergen",
+   export_json:"JSON exportieren",export_csv:"CSV exportieren",export_pdf:"Drucken / PDF",analysis_empty:"Analyse aktivieren und Datei verarbeiten, um Auswertung zu sehen.",
+   sec_timeline:"Stimmungsverlauf",sec_alerts:"Schlüsselwort-Warnungen",sec_keypoints:"Kernpunkte",sec_actions:"Aufgaben",sec_unanswered:"Offene Fragen",
+   sec_commit:"Zusagen",sec_topics:"Themen",sec_entities:"Entitäten",sec_metrics:"Gesprächsmetriken",sec_voice:"Stimme / Akustik",no_alerts:"keine",
+   l_overall:"gesamt",l_customer:"Kunde",l_complaint:"Beschwerde",l_nocomplaint:"keine Beschwerde",l_resolution:"Lösung",l_satisfaction:"Zufriedenheit",
+   l_category:"Kategorie",l_urgency:"Dringlichkeit",l_agent:"Agent",l_escalate:"ESKALATION",l_progression:"Verlauf",l_tone:"Ton",l_confidence:"Konfidenz",
+   l_severity:"Schweregrad",l_outcome:"Ergebnis",drop_image:"Bild hierher ziehen oder klicken",detect_btn:"Gesichter erkennen",compare_btn:"Vergleichen",threshold:"Schwellenwert",
+   e:{sent:{positive:"positiv",negative:"negativ",neutral:"neutral"},emo:{neutral:"neutral",frustrated:"frustriert",angry:"verärgert",happy:"froh",satisfied:"zufrieden",confused:"verwirrt"},
+     sev:{none:"keine",low:"niedrig",medium:"mittel",high:"hoch"},out:{resolved:"gelöst",unresolved:"ungelöst","follow-up required":"Rückmeldung nötig",transferred:"weitergeleitet",escalated:"eskaliert",unclear:"unklar"},
+     res:{resolved:"gelöst",unresolved:"ungelöst","follow-up required":"Rückmeldung nötig",unclear:"unklar"},sat:{high:"hoch",medium:"mittel",low:"niedrig",unclear:"unklar"},
+     urg:{low:"niedrig",medium:"mittel",high:"hoch"},cat:{billing:"Abrechnung",technical:"technisch",sales:"Vertrieb",complaint:"Beschwerde",information:"Information",other:"Sonstiges"},
+     prof:{poor:"schlecht",adequate:"ausreichend",good:"gut",excellent:"ausgezeichnet",unclear:"unklar"},role:{agent:"Agent",customer:"Kunde",other:"andere"},
+     kw:{refund:"Erstattung",cancel:"Kündigung",complaint:"Beschwerde",urgent:"Dringend",supervisor:"Vorgesetzter",lawyer:"Anwalt"}}},
+ fr:{subtitle:"Analyse d'appels",examples:"Exemples API",nav_call:"Analyse d'appel",nav_detect:"Détection visage",nav_compare:"Comparaison visage",
+   settings:"Paramètres",speakers:"Locuteurs",speakers_hint:"2 pour un appel normal",spoken:"Langue parlée",spoken_hint:"forcer le code ISO si audio bruité",
+   results:"Langue des résultats",results_hint:"langue de l'analyse",sensitivity:"Sensibilité diarisation",sens_hint:"plus haut = moins de locuteurs",more:"plus",fewer:"moins",
+   run_after:"Analyser après transcription",files_title:"Fichiers audio (WAV/MP3/M4A/FLAC/OGG ou ZIP)",drop:"Déposez des fichiers audio ou un .zip, ou cliquez",
+   process:"Tout traiter",clear:"Effacer",transcript:"Transcription",analysis:"Analyse",play:"Lire",pause:"Pause",raw_show:"Voir JSON brut",raw_hide:"Masquer JSON",
+   export_json:"Exporter JSON",export_csv:"Exporter CSV",export_pdf:"Imprimer / PDF",analysis_empty:"Activez l'analyse puis traitez le fichier.",
+   sec_timeline:"Chronologie du sentiment",sec_alerts:"Alertes mots-clés",sec_keypoints:"Points clés",sec_actions:"Actions",sec_unanswered:"Questions sans réponse",
+   sec_commit:"Engagements",sec_topics:"Sujets",sec_entities:"Entités",sec_metrics:"Métriques d'appel",sec_voice:"Voix / acoustique",no_alerts:"aucune",
+   l_overall:"global",l_customer:"client",l_complaint:"réclamation",l_nocomplaint:"pas de réclamation",l_resolution:"résolution",l_satisfaction:"satisfaction",
+   l_category:"catégorie",l_urgency:"urgence",l_agent:"agent",l_escalate:"ESCALADE",l_progression:"évolution",l_tone:"ton",l_confidence:"confiance",
+   l_severity:"gravité",l_outcome:"résultat",drop_image:"Déposez une image ou cliquez",detect_btn:"Détecter",compare_btn:"Comparer",threshold:"Seuil",
+   e:{sent:{positive:"positif",negative:"négatif",neutral:"neutre"},emo:{neutral:"neutre",frustrated:"frustré",angry:"en colère",happy:"heureux",satisfied:"satisfait",confused:"confus"},
+     sev:{none:"aucune",low:"faible",medium:"moyenne",high:"élevée"},out:{resolved:"résolu",unresolved:"non résolu","follow-up required":"suivi requis",transferred:"transféré",escalated:"escaladé",unclear:"incertain"},
+     res:{resolved:"résolu",unresolved:"non résolu","follow-up required":"suivi requis",unclear:"incertain"},sat:{high:"élevée",medium:"moyenne",low:"faible",unclear:"incertaine"},
+     urg:{low:"faible",medium:"moyenne",high:"élevée"},cat:{billing:"facturation",technical:"technique",sales:"ventes",complaint:"réclamation",information:"information",other:"autre"},
+     prof:{poor:"médiocre",adequate:"adéquat",good:"bon",excellent:"excellent",unclear:"incertain"},role:{agent:"agent",customer:"client",other:"autre"},
+     kw:{refund:"Remboursement",cancel:"Annulation",complaint:"Réclamation",urgent:"Urgent",supervisor:"Superviseur",lawyer:"Avocat"}}},
+ es:{subtitle:"Análisis de llamadas",examples:"Ejemplos API",nav_call:"Análisis de llamada",nav_detect:"Detección de rostro",nav_compare:"Comparar rostros",
+   settings:"Ajustes",speakers:"Interlocutores",speakers_hint:"2 para una llamada normal",spoken:"Idioma hablado",spoken_hint:"forzar código ISO si hay ruido",
+   results:"Idioma de resultados",results_hint:"idioma del análisis",sensitivity:"Sensibilidad de diarización",sens_hint:"mayor = menos interlocutores",more:"más",fewer:"menos",
+   run_after:"Analizar tras la transcripción",files_title:"Archivos de audio (WAV/MP3/M4A/FLAC/OGG o ZIP)",drop:"Suelta audio o un .zip, o haz clic",
+   process:"Procesar todo",clear:"Limpiar",transcript:"Transcripción",analysis:"Análisis",play:"Reproducir",pause:"Pausa",raw_show:"Ver JSON",raw_hide:"Ocultar JSON",
+   export_json:"Exportar JSON",export_csv:"Exportar CSV",export_pdf:"Imprimir / PDF",analysis_empty:"Activa el análisis y procesa el archivo.",
+   sec_timeline:"Línea de sentimiento",sec_alerts:"Alertas de palabras clave",sec_keypoints:"Puntos clave",sec_actions:"Acciones",sec_unanswered:"Preguntas sin responder",
+   sec_commit:"Compromisos",sec_topics:"Temas",sec_entities:"Entidades",sec_metrics:"Métricas de llamada",sec_voice:"Voz / acústica",no_alerts:"ninguna",
+   l_overall:"general",l_customer:"cliente",l_complaint:"reclamación",l_nocomplaint:"sin reclamación",l_resolution:"resolución",l_satisfaction:"satisfacción",
+   l_category:"categoría",l_urgency:"urgencia",l_agent:"agente",l_escalate:"ESCALAR",l_progression:"evolución",l_tone:"tono",l_confidence:"confianza",
+   l_severity:"gravedad",l_outcome:"resultado",drop_image:"Suelta una imagen o haz clic",detect_btn:"Detectar",compare_btn:"Comparar",threshold:"Umbral",
+   e:{sent:{positive:"positivo",negative:"negativo",neutral:"neutral"},emo:{neutral:"neutral",frustrated:"frustrado",angry:"enojado",happy:"feliz",satisfied:"satisfecho",confused:"confundido"},
+     sev:{none:"ninguna",low:"baja",medium:"media",high:"alta"},out:{resolved:"resuelto",unresolved:"no resuelto","follow-up required":"seguimiento requerido",transferred:"transferido",escalated:"escalado",unclear:"incierto"},
+     res:{resolved:"resuelto",unresolved:"no resuelto","follow-up required":"seguimiento requerido",unclear:"incierto"},sat:{high:"alta",medium:"media",low:"baja",unclear:"incierta"},
+     urg:{low:"baja",medium:"media",high:"alta"},cat:{billing:"facturación",technical:"técnico",sales:"ventas",complaint:"reclamación",information:"información",other:"otro"},
+     prof:{poor:"deficiente",adequate:"adecuado",good:"bueno",excellent:"excelente",unclear:"incierto"},role:{agent:"agente",customer:"cliente",other:"otro"},
+     kw:{refund:"Reembolso",cancel:"Cancelación",complaint:"Reclamación",urgent:"Urgente",supervisor:"Supervisor",lawyer:"Abogado"}}},
+ it:{subtitle:"Analisi chiamate",examples:"Esempi API",nav_call:"Analisi chiamata",nav_detect:"Rilevamento volto",nav_compare:"Confronto volti",
+   settings:"Impostazioni",speakers:"Interlocutori",speakers_hint:"2 per una chiamata normale",spoken:"Lingua parlata",spoken_hint:"forza il codice ISO se rumorosa",
+   results:"Lingua dei risultati",results_hint:"lingua dell'analisi",sensitivity:"Sensibilità diarizzazione",sens_hint:"più alto = meno interlocutori",more:"più",fewer:"meno",
+   run_after:"Analizza dopo la trascrizione",files_title:"File audio (WAV/MP3/M4A/FLAC/OGG o ZIP)",drop:"Trascina audio o uno .zip, o clicca",
+   process:"Elabora tutto",clear:"Pulisci",transcript:"Trascrizione",analysis:"Analisi",play:"Riproduci",pause:"Pausa",raw_show:"Mostra JSON",raw_hide:"Nascondi JSON",
+   export_json:"Esporta JSON",export_csv:"Esporta CSV",export_pdf:"Stampa / PDF",analysis_empty:"Attiva l'analisi ed elabora il file.",
+   sec_timeline:"Andamento del sentiment",sec_alerts:"Avvisi parole chiave",sec_keypoints:"Punti chiave",sec_actions:"Azioni",sec_unanswered:"Domande senza risposta",
+   sec_commit:"Impegni",sec_topics:"Argomenti",sec_entities:"Entità",sec_metrics:"Metriche chiamata",sec_voice:"Voce / acustica",no_alerts:"nessuno",
+   l_overall:"generale",l_customer:"cliente",l_complaint:"reclamo",l_nocomplaint:"nessun reclamo",l_resolution:"risoluzione",l_satisfaction:"soddisfazione",
+   l_category:"categoria",l_urgency:"urgenza",l_agent:"agente",l_escalate:"ESCALATION",l_progression:"andamento",l_tone:"tono",l_confidence:"confidenza",
+   l_severity:"gravità",l_outcome:"esito",drop_image:"Trascina un'immagine o clicca",detect_btn:"Rileva",compare_btn:"Confronta",threshold:"Soglia",
+   e:{sent:{positive:"positivo",negative:"negativo",neutral:"neutro"},emo:{neutral:"neutro",frustrated:"frustrato",angry:"arrabbiato",happy:"felice",satisfied:"soddisfatto",confused:"confuso"},
+     sev:{none:"nessuna",low:"bassa",medium:"media",high:"alta"},out:{resolved:"risolto",unresolved:"non risolto","follow-up required":"follow-up necessario",transferred:"trasferito",escalated:"escalato",unclear:"incerto"},
+     res:{resolved:"risolto",unresolved:"non risolto","follow-up required":"follow-up necessario",unclear:"incerto"},sat:{high:"alta",medium:"media",low:"bassa",unclear:"incerta"},
+     urg:{low:"bassa",medium:"media",high:"alta"},cat:{billing:"fatturazione",technical:"tecnico",sales:"vendite",complaint:"reclamo",information:"informazione",other:"altro"},
+     prof:{poor:"scarso",adequate:"adeguato",good:"buono",excellent:"eccellente",unclear:"incerto"},role:{agent:"agente",customer:"cliente",other:"altro"},
+     kw:{refund:"Rimborso",cancel:"Disdetta",complaint:"Reclamo",urgent:"Urgente",supervisor:"Supervisore",lawyer:"Avvocato"}}},
+};
+let LANG="de";
+function t(k){return (I18N[LANG]&&I18N[LANG][k]) || I18N.en[k] || k;}
+function L(group,val){if(val==null)return"";const g=(I18N[LANG]&&I18N[LANG].e[group])||I18N.en.e[group]||{};return g[val]||(I18N.en.e[group]&&I18N.en.e[group][val])||val;}
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t(el.dataset.i18n);});
+  document.documentElement.lang=LANG;
+}
+$("ui-lang").addEventListener("change",e=>{LANG=e.target.value;applyI18n();if(selected)openDetail(selected);});
+
+/* ---------------- tabs / dropzones ---------------- */
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));$("view-"+b.dataset.view).classList.add("on");
+}));
+document.querySelectorAll(".subtabs button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".subtabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  $("sub-transcript").style.display=b.dataset.sub==="transcript"?"block":"none";
+  $("sub-analysis").style.display=b.dataset.sub==="analysis"?"block":"none";
+}));
+function wireDrop(dropId,inputId,onFiles){const drop=$(dropId),input=$(inputId);
+  drop.addEventListener("click",()=>input.click());
+  ["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over");}));
+  drop.addEventListener("drop",ev=>{if(ev.dataTransfer.files.length)onFiles(ev.dataTransfer.files);});
+  input.addEventListener("change",()=>{if(input.files.length)onFiles(input.files);});}
+
+/* ---------------- queue ---------------- */
+$("op-thresh").addEventListener("input",e=>$("op-thval").textContent=parseFloat(e.target.value).toFixed(2));
+const AUDIO_EXT=/\.(wav|mp3|m4a|flac|ogg|aac|wma|opus)$/i;
+let queue=[],selected=null,idSeq=0,processing=false;
+wireDrop("sp-drop","sp-file",addFiles);
+async function addFiles(fl){for(const f of fl){if(/\.zip$/i.test(f.name))await addZip(f);else if(AUDIO_EXT.test(f.name)||f.type.startsWith("audio"))push(f,f.name);}renderQueue();}
+async function addZip(z){try{const zip=await JSZip.loadAsync(z);const names=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&AUDIO_EXT.test(n));for(const n of names){const blob=await zip.files[n].async("blob");push(new File([blob],n.split("/").pop(),{type:"audio/*"}),n.split("/").pop());}if(!names.length)setStatus($("sp-status"),"No audio in ZIP",true);}catch(e){setStatus($("sp-status"),"ZIP error: "+e.message,true);}}
+function push(file,name){queue.push({id:++idSeq,file,name,status:"queued",transcript:null,analysis:null});}
+function renderQueue(){const q=$("sp-queue");if(!queue.length){q.style.display="none";$("sp-run").disabled=true;$("sp-clear").disabled=true;return;}
+  q.style.display="block";$("sp-run").disabled=processing;$("sp-clear").disabled=processing;q.innerHTML="";
+  queue.forEach(it=>{const row=document.createElement("div");row.className="qrow"+(selected&&selected.id===it.id?" sel":"");
+    row.innerHTML=`<span class="nm">${esc(it.name)}</span><span class="pill ${it.status}">${it.status}</span><span class="status">${it.transcript?(it.transcript.num_speakers+" spk · "+fmt(it.transcript.duration)):""}</span>`;
+    row.addEventListener("click",()=>{if(it.transcript)openDetail(it);});q.appendChild(row);});}
+$("sp-clear").addEventListener("click",()=>{queue=[];selected=null;renderQueue();$("sp-detail").style.display="none";setStatus($("sp-status"),"");});
+$("sp-run").addEventListener("click",processAll);
+async function processAll(){if(processing)return;processing=true;renderQueue();
+  const sp=$("op-speakers").value.trim(),num=sp===""?-1:parseInt(sp,10),lang=$("op-lang").value.trim(),outl=$("op-outlang").value,thr=$("op-thresh").value,doA=$("op-analyze").checked;
+  for(const it of queue){if(it.status==="done")continue;
+    try{it.status="transcribing";renderQueue();setStatus($("sp-status"),"Processing "+it.name+" …");
+      const qs=new URLSearchParams();qs.set("threshold",thr);if(num>0)qs.set("num_speakers",num);if(lang)qs.set("language",lang);
+      const fd=new FormData();fd.append("file",it.file,it.name);
+      const tr=await fetch("/voice/transcribe?"+qs,{method:"POST",body:fd});const trd=await tr.json();if(!tr.ok)throw new Error(trd.detail||("HTTP "+tr.status));it.transcript=trd;
+      if(doA){it.status="analyzing";renderQueue();const af=new FormData();af.append("transcript",JSON.stringify(trd));
+        const ar=await fetch("/voice/analysis?output_language="+encodeURIComponent(outl),{method:"POST",body:af});const ard=await ar.json();if(!ar.ok)throw new Error(ard.detail||("HTTP "+ar.status));it.analysis=ard;}
+      it.status="done";if(!selected)openDetail(it);
+    }catch(e){it.status="error";setStatus($("sp-status"),it.name+": "+e.message,true);}renderQueue();}
+  processing=false;renderQueue();setStatus($("sp-status"),"Done — "+queue.filter(x=>x.status==="done").length+"/"+queue.length);}
+
+/* ---------------- detail ---------------- */
+let segs=[],spkMap=new Map(),lineEmos=[];
+const EMO2SENT={neutral:"neu",frustrated:"neg",angry:"neg",confused:"neg",happy:"pos",satisfied:"pos"};
+function openDetail(it){selected=it;renderQueue();$("sp-detail").style.display="block";
+  const dm=(it.transcript&&it.transcript.diarization)||{};
+  $("sp-detail-name").textContent=it.name+"  ·  "+(dm.method==="channel"?("dual-channel ("+dm.channels+"ch)"):("clustering"+(dm.threshold!=null?(" @ "+dm.threshold):"")));
+  lineEmos=(it.analysis&&it.analysis.line_emotions)||[];
+  Viz.load(it.file);renderTranscript(it.transcript);renderTimeline(it.transcript,lineEmos);
+  if(it.analysis){renderAnalysis(it.analysis);}else{$("an-card").style.display="none";var e=$("an-empty");if(e)e.style.display="block";}
+  $("sp-raw").textContent=JSON.stringify(it.analysis||it.transcript,null,2);}
+function renderTranscript(tt){segs=(tt&&tt.segments)||[];spkMap=new Map();segs.forEach(s=>{if(!spkMap.has(s.speaker))spkMap.set(s.speaker,spkMap.size);});
+  const lg=$("sp-legend");lg.innerHTML="";[...spkMap.keys()].forEach(k=>{const i=spkMap.get(k);const e=document.createElement("span");e.innerHTML=`<i style="background:var(--s${i%8})"></i>${esc(k)}`;lg.appendChild(e);});
+  const box=$("sp-segments");box.innerHTML="";if(!segs.length){box.innerHTML='<div class="empty">—</div>';return;}
+  segs.forEach((s,idx)=>{const i=spkMap.get(s.speaker);const emo=lineEmos[idx];const sclass=emo?EMO2SENT[emo]||"neu":"";
+    const d=document.createElement("div");d.className="seg";d.dataset.idx=idx;
+    const emoTag=emo?`<span class="emo ${sclass}">${esc(L('emo',emo))}</span>`:"";
+    d.innerHTML=`<div class="meta" style="color:var(--s${i%8})"><span class="spk">${esc(s.speaker)}</span><span class="time">${fmt(s.start)}</span>${emoTag}</div><div class="text">${esc(s.text)}</div>`;
+    d.addEventListener("click",()=>{const a=$("player");a.currentTime=s.start;a.play();});box.appendChild(d);});}
+function renderTimeline(tt,emos){const tl=$("timeline");tl.innerHTML="";const list=(tt&&tt.segments)||[];const dur=(tt&&tt.duration)||list.reduce((m,s)=>Math.max(m,s.end),0)||1;
+  if(!list.length||!emos.length){tl.style.display="none";return;}tl.style.display="flex";
+  list.forEach((s,idx)=>{const w=Math.max(0.4,((s.end-s.start)/dur)*100);const sent=EMO2SENT[emos[idx]]||"neu";const col=sent==="pos"?"var(--pos)":(sent==="neg"?"var(--neg)":"#cfd3da");
+    const c=document.createElement("div");c.style.width=w+"%";c.style.background=col;c.title=fmt(s.start)+" · "+L('emo',emos[idx]||"neutral");c.addEventListener("click",()=>{const a=$("player");a.currentTime=s.start;a.play();});tl.appendChild(c);});}
+function badge(el,label,val,group,cls){if(!val){el.style.display="none";return;}el.textContent=label+": "+L(group,val);el.className="badge "+(cls||"neu");el.style.display="inline-block";}
+const SENTC=v=>v==="positive"?"pos":(v==="negative"?"neg":"neu");
+function renderAnalysis(data){const a=data.analysis||{},ins=a.insights||{},m=a.metrics||{},v=a.voice||{};
+  badge($("an-sent"),t('l_overall'),ins.overall_sentiment,'sent',SENTC(ins.overall_sentiment));
+  badge($("an-cust"),t('l_customer'),ins.customer_sentiment,'sent',SENTC(ins.customer_sentiment));
+  if(ins.is_complaint===true){$("an-complaint").textContent=t('l_complaint');$("an-complaint").className="badge neg";$("an-complaint").style.display="inline-block";}
+  else if(ins.is_complaint===false){$("an-complaint").textContent=t('l_nocomplaint');$("an-complaint").className="badge pos";$("an-complaint").style.display="inline-block";}
+  else $("an-complaint").style.display="none";
+  badge($("an-res"),t('l_resolution'),ins.resolution,'res',/^resolved/.test(ins.resolution||"")?"pos":"warnb");
+  badge($("an-sat"),t('l_satisfaction'),ins.customer_satisfaction,'sat',ins.customer_satisfaction==="high"?"pos":(ins.customer_satisfaction==="low"?"neg":"neu"));
+  badge($("an-cat"),t('l_category'),ins.call_category,'cat','neu');
+  badge($("an-urg"),t('l_urgency'),ins.urgency,'urg',ins.urgency==="high"?"neg":(ins.urgency==="low"?"pos":"warnb"));
+  badge($("an-sev"),t('l_severity'),ins.complaint_severity,'sev',ins.complaint_severity==="high"?"neg":(ins.complaint_severity==="medium"?"warnb":"neu"));
+  badge($("an-out"),t('l_outcome'),ins.call_outcome,'out',/^resolved/.test(ins.call_outcome||"")?"pos":"warnb");
+  badge($("an-agent"),t('l_agent'),ins.agent_professionalism,'prof',/good|excellent/.test(ins.agent_professionalism||"")?"pos":(/poor/.test(ins.agent_professionalism||"")?"neg":"neu"));
+  if(ins.escalation_needed===true){$("an-escal").textContent=t('l_escalate');$("an-escal").className="badge neg";$("an-escal").style.display="inline-block";}else $("an-escal").style.display="none";
+  const meta=[];if(ins.tone)meta.push(t('l_tone')+": "+ins.tone);if(ins.sentiment_start||ins.sentiment_end)meta.push(t('l_progression')+": "+L('sent',ins.sentiment_start)+" → "+L('sent',ins.sentiment_end));if(a.confidence!=null)meta.push(t('l_confidence')+": "+Math.round(a.confidence*100)+"%");
+  $("an-meta").textContent=meta.join("  ·  ");
+  $("an-reason").textContent=(ins.call_reason||"")+(ins.complaint_reason?("  ·  "+ins.complaint_reason):"");
+  $("an-summary").textContent=ins.summary||(data.llm_enabled?"":"(LLM disabled)");
+  $("an-details").textContent=ins.details||"";
+  // alerts
+  const al=a.alerts||[];const ab=$("an-alerts");ab.innerHTML="";
+  if(!al.length)ab.innerHTML=`<div class="kv">${esc(t('no_alerts'))}</div>`;
+  al.forEach(x=>{const d=document.createElement("div");d.className="alert";d.innerHTML=`<b>${esc(L('kw',x.keyword))}</b><span>${esc(x.speaker||"")} · ${fmt(x.start)}</span><span style="color:var(--muted)">${esc(x.snippet||"")}</span>`;d.addEventListener("click",()=>{const p=$("player");p.currentTime=x.start||0;p.play();});ab.appendChild(d);});
+  fillList($("an-keys"),ins.key_points);fillList($("an-actions"),ins.action_items);fillList($("an-unanswered"),ins.unanswered_questions);fillList($("an-commit"),ins.commitments);
+  $("an-topics").textContent=(ins.topics||[]).join(" · ")||"—";
+  const ent=ins.entities||{},ep=[];if((ent.products||[]).length)ep.push("• "+ent.products.join(", "));if((ent.order_or_article_numbers||[]).length)ep.push("# "+ent.order_or_article_numbers.join(", "));if((ent.people||[]).length)ep.push("@ "+ent.people.join(", "));
+  $("an-entities").innerHTML=ep.length?ep.map(esc).join("<br>"):"—";
+  const sp=m.speakers||{},roles=ins.speaker_roles||{};const rows=Object.keys(sp).map(k=>`${esc(k)}${roles[k]?(" ("+esc(L('role',roles[k]))+")"):""}: ${Math.round((sp[k].talk_ratio||0)*100)}% · ${sp[k].words_per_min} wpm`);
+  rows.push(`silence ${m.total_silence}s · turns ${m.num_turns}`);$("an-metrics").innerHTML=rows.map(esc).join("<br>");
+  const vs=(v&&v.speakers)||{},vi=(v&&v.interaction)||{};const vr=Object.keys(vs).map(k=>`${esc(k)}: ${vs[k].pitch_hz}Hz · ${vs[k].loudness_dbfs}dB · voiced ${Math.round((vs[k].voiced_ratio||0)*100)}%`);
+  if(vi.interruptions!=null)vr.push(`interruptions ${vi.interruptions} (${vi.overtalk_sec||0}s)`);if(vi.avg_response_gap!=null)vr.push(`avg gap ${vi.avg_response_gap}s`);
+  $("an-voice").innerHTML=vr.length?vr.map(esc).join("<br>"):"—";
+  $("an-card").style.display="block";var e=$("an-empty");if(e)e.style.display="none";}
+function fillList(ul,arr){ul.innerHTML="";(arr||[]).forEach(x=>{const li=document.createElement("li");li.textContent=x;ul.appendChild(li);});if(!(arr||[]).length)ul.innerHTML='<li style="color:var(--muted)">—</li>';}
+$("sp-toggle").addEventListener("click",()=>{const r=$("sp-raw");const v=r.style.display==="none";r.style.display=v?"block":"none";$("sp-toggle").textContent=v?t('raw_hide'):t('raw_show');});
+
+/* ---------------- export ---------------- */
+function dl(name,text,type){const b=new Blob([text],{type});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+$("ex-json").addEventListener("click",()=>{if(!selected)return;dl((selected.name||"call")+".json",JSON.stringify(selected.analysis||selected.transcript,null,2),"application/json");});
+$("ex-csv").addEventListener("click",()=>{if(!selected||!selected.transcript)return;const rows=[["speaker","start","end","emotion","text"]];
+  (selected.transcript.segments||[]).forEach((s,i)=>rows.push([s.speaker,s.start,s.end,(lineEmos[i]||""),(s.text||"").replace(/"/g,'""')]));
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");dl((selected.name||"call")+".csv",csv,"text/csv");});
+$("ex-pdf").addEventListener("click",()=>window.print());
+
+/* ---------------- audio viz ---------------- */
+const Viz=(function(){const audio=$("player"),wave=$("wave"),spec=$("spec");let ctx,analyser,src,peaks=null,raf=null;
+  function ensure(){if(ctx)return;ctx=new (window.AudioContext||window.webkitAudioContext)();src=ctx.createMediaElementSource(audio);analyser=ctx.createAnalyser();analyser.fftSize=128;src.connect(analyser);analyser.connect(ctx.destination);}
+  async function load(file){audio.src=URL.createObjectURL(file);peaks=null;try{ensure();const buf=await file.arrayBuffer();const dec=await ctx.decodeAudioData(buf.slice(0));peaks=computePeaks(dec,900);}catch(e){peaks=null;}drawWave();updateTime();}
+  function computePeaks(dec,n){const ch=dec.getChannelData(0);const block=Math.max(1,Math.floor(ch.length/n));const out=[];for(let i=0;i<n;i++){let mx=0;const s=i*block;for(let j=0;j<block;j++){const v=Math.abs(ch[s+j]||0);if(v>mx)mx=v;}out.push(mx);}return out;}
+  function drawWave(){const c=wave,g=c.getContext("2d");const W=c.width=c.clientWidth*devicePixelRatio,H=c.height=88*devicePixelRatio;g.clearRect(0,0,W,H);if(!peaks){return;}const prog=audio.duration?audio.currentTime/audio.duration:0,mid=H/2,bw=W/peaks.length;peaks.forEach((p,i)=>{const h=Math.max(1,p*H*0.9);g.fillStyle=(i/peaks.length)<=prog?"#0d7d72":"#c7cbd4";g.fillRect(i*bw,mid-h/2,Math.max(1,bw*0.7),h);});}
+  function drawSpec(){const c=spec,g=c.getContext("2d");const W=c.width=c.clientWidth*devicePixelRatio,H=c.height=64*devicePixelRatio;const n=analyser.frequencyBinCount,arr=new Uint8Array(n);analyser.getByteFrequencyData(arr);g.clearRect(0,0,W,H);const bw=W/n;for(let i=0;i<n;i++){const h=(arr[i]/255)*H;g.fillStyle=`hsl(${172+(i/n)*40},65%,${32+(arr[i]/255)*38}%)`;g.fillRect(i*bw,H-h,bw*0.8,h);}}
+  function loop(){if(audio.paused)return;drawWave();drawSpec();updateTime();raf=requestAnimationFrame(loop);}
+  function updateTime(){$("ptime").textContent=fmt(audio.currentTime)+" / "+fmt(audio.duration||0);}
+  audio.addEventListener("play",()=>{if(ctx&&ctx.state==="suspended")ctx.resume();$("pp").innerHTML="❚❚ "+t('pause');loop();});
+  audio.addEventListener("pause",()=>{$("pp").innerHTML="► "+t('play');cancelAnimationFrame(raf);drawWave();});
+  audio.addEventListener("timeupdate",()=>{updateTime();drawWave();const tt=audio.currentTime;document.querySelectorAll("#sp-segments .seg").forEach(el=>{const s=segs[el.dataset.idx];el.classList.toggle("active",s&&tt>=s.start&&tt<(s.end||s.start+999));});});
+  audio.addEventListener("ended",()=>{$("pp").innerHTML="► "+t('play');cancelAnimationFrame(raf);});
+  wave.addEventListener("click",e=>{if(!audio.duration)return;const r=wave.getBoundingClientRect();audio.currentTime=((e.clientX-r.left)/r.width)*audio.duration;});
+  $("pp").addEventListener("click",()=>{if(audio.paused)audio.play();else audio.pause();});
+  window.addEventListener("resize",()=>drawWave());
+  return {load};})();
+
+/* ---------------- face ---------------- */
+let dtFile=null,dtImg=new Image();
+wireDrop("dt-drop","dt-file",fs=>{const f=fs[0];dtFile=f;$("dt-fname").textContent=f.name;dtImg.src=URL.createObjectURL(f);$("dt-go").disabled=false;$("dt-canvas").style.display="none";$("dt-list").innerHTML="";});
+$("dt-go").addEventListener("click",async()=>{if(!dtFile)return;setStatus($("dt-status"),"…");$("dt-go").disabled=true;const fd=new FormData();fd.append("file",dtFile,dtFile.name);
+  try{const res=await fetch("/face/detect",{method:"POST",body:fd});const d=await res.json();if(!res.ok)throw new Error(d.detail||("HTTP "+res.status));
+    drawDet(d.faces||[]);const list=$("dt-list");list.innerHTML=d.count?"":'<div class="empty">—</div>';(d.faces||[]).forEach((f,i)=>{const x=document.createElement("div");x.textContent=`#${i+1} bbox=[${f.bbox.join(", ")}] score=${f.det_score}`;list.appendChild(x);});setStatus($("dt-status"),d.count+" face(s)");
+  }catch(e){setStatus($("dt-status"),e.message,true);}finally{$("dt-go").disabled=false;}});
+function drawDet(faces){const cv=$("dt-canvas"),g=cv.getContext("2d"),sc=Math.min(1,820/dtImg.naturalWidth);cv.width=dtImg.naturalWidth*sc;cv.height=dtImg.naturalHeight*sc;g.drawImage(dtImg,0,0,cv.width,cv.height);g.lineWidth=Math.max(2,cv.width/300);g.strokeStyle="#0d7d72";g.fillStyle="#0d7d72";g.font=`${Math.max(12,cv.width/45)}px monospace`;faces.forEach((f,i)=>{const[x1,y1,x2,y2]=f.bbox.map(v=>v*sc);g.strokeRect(x1,y1,x2-x1,y2-y1);g.fillText(`#${i+1}`,x1,Math.max(12,y1-4));});cv.style.display="block";}
+let cp1=null,cp2=null;
+function wireCmp(n){wireDrop("cp-drop"+n,"cp-file"+n,fs=>{const f=fs[0];if(n===1)cp1=f;else cp2=f;$("cp-fname"+n).textContent=f.name;const tm=$("cp-thumb"+n);tm.src=URL.createObjectURL(f);tm.style.display="block";$("cp-go").disabled=!(cp1&&cp2);$("cp-result").style.display="none";});}
+wireCmp(1);wireCmp(2);
+$("cp-th").addEventListener("input",e=>$("cp-thval").textContent=parseFloat(e.target.value).toFixed(2));
+$("cp-go").addEventListener("click",async()=>{if(!(cp1&&cp2))return;setStatus($("cp-status"),"…");$("cp-go").disabled=true;const fd=new FormData();fd.append("file1",cp1,cp1.name);fd.append("file2",cp2,cp2.name);
+  try{const res=await fetch("/face/compare?threshold="+$("cp-th").value,{method:"POST",body:fd});const d=await res.json();if(!res.ok)throw new Error(d.detail||("HTTP "+res.status));
+    $("cp-score").textContent=d.similarity.toFixed(3);const b=$("cp-badge");b.textContent=d.match?"MATCH":"NO MATCH";b.className="badge "+(d.match?"pos":"neg");$("cp-detail").textContent=`threshold ${d.threshold} · faces ${d.faces_detected.image1}/${d.faces_detected.image2}`;$("cp-result").style.display="block";setStatus($("cp-status"),"");
+  }catch(e){setStatus($("cp-status"),e.message,true);$("cp-result").style.display="none";}finally{$("cp-go").disabled=false;}});
+
+/* init */
+$("ui-lang").value=LANG;applyI18n();
+})();
+</script>
+</body>
+</html>

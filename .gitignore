@@ -1,0 +1,12 @@
+# secrets — never commit
+.env
+hf_token.txt
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local model caches (if you mount them during dev)
+models/
